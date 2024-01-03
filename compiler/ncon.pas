@@ -124,6 +124,10 @@ interface
           { returns whether this platform uses the nil pointer to represent
             empty dynamic strings }
           class function emptydynstrnil: boolean; virtual;
+          procedure printnodedata(var T: Text); override;
+{$ifdef DEBUG_NODE_XML}
+          procedure XMLPrintNodeData(var T: Text); override;
+{$endif DEBUG_NODE_XML}
        end;
        tstringconstnodeclass = class of tstringconstnode;
 
@@ -1043,6 +1047,58 @@ implementation
       begin
         result:=true;
       end;
+
+      procedure tstringconstnode.printnodedata(var T: Text);
+      begin
+        inherited printnodedata(t);
+        writeln(t,printnodeindention,'value = "',value_str,'"');
+      end;
+
+{$ifdef DEBUG_NODE_XML}
+    procedure TStringConstNode.XMLPrintNodeData(var T: Text);
+      var
+        OutputStr: ansistring;
+      begin
+        inherited XMLPrintNodeData(T);
+        Write(T, printnodeindention, '<stringtype>');
+        case cst_type of
+        cst_conststring:
+          Write(T, 'conststring');
+        cst_shortstring:
+          Write(T, 'shortstring');
+        cst_longstring:
+          Write(T, 'longstring');
+        cst_ansistring:
+          Write(T, 'ansistring');
+        cst_widestring:
+          Write(T, 'widestring');
+        cst_unicodestring:
+          Write(T, 'unicodestring');
+        end;
+        WriteLn(T, '</stringtype>');
+        WriteLn(T, printnodeindention, '<length>', len, '</length>');
+
+        if len = 0 then
+          begin
+            WriteLn(T, printnodeindention, '<value />');
+            Exit;
+          end;
+
+        case cst_type of
+        cst_widestring, cst_unicodestring:
+          begin
+            { value_str is of type PCompilerWideString }
+            SetLength(OutputStr, len);
+            UnicodeToUtf8(PChar(OutputStr), PUnicodeChar(PCompilerWideString(value_str)^.data), len + 1); { +1 for the null terminator }
+          end;
+        else
+          OutputStr := ansistring(value_str);
+          SetLength(OutputStr, len);
+        end;
+
+        WriteLn(T, printnodeindention, '<value>', SanitiseXMLString(OutputStr), '</value>');
+      end;
+{$endif DEBUG_NODE_XML}
 
 {*****************************************************************************
                              TSETCONSTNODE
